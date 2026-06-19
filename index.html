@@ -442,11 +442,14 @@ footer .disc{font-size:12px;line-height:1.85;max-width:58ch}
 .ribbon-track .w{padding:0 18px!important;color:var(--cream)!important}
 .ribbon-track .d{padding:0!important;color:var(--rose)!important;opacity:.5!important;font-size:9px!important;vertical-align:middle!important}
 
-.pz-zoom{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);display:flex;gap:5px;z-index:7;opacity:0;transition:opacity .15s}
-.editing .portrait:hover .pz-zoom{opacity:1}
-.pz-zoom button{border:0;background:rgba(20,12,18,.92);color:#fff;border-radius:50%;width:24px;height:24px;font-size:12px;line-height:1;cursor:pointer;padding:0}
-.editing .portrait{cursor:move}
-.editing .portrait img{transition:none}
+.editing .portrait{overflow:visible!important;cursor:move}
+.editing .portrait .img-badge{display:none!important}
+.pz-clip{position:absolute;inset:0;border-radius:50%;overflow:hidden}
+.pz-zoom{position:absolute;top:calc(100% + 12px);left:50%;transform:translateX(-50%);display:flex;gap:6px;z-index:9;background:rgba(20,12,18,.95);padding:6px 8px;border-radius:99px;white-space:nowrap;box-shadow:0 6px 18px rgba(0,0,0,.45)}
+.pz-zoom button{border:0;background:#5a3344;color:#fff;border-radius:50%;width:30px;height:30px;font-size:16px;line-height:1;cursor:pointer;padding:0}
+.pz-zoom button:hover{background:#6f4055}
+.pz-zoom button[data-a="up"]{width:auto;border-radius:15px;padding:0 13px;font-size:12px;font-weight:700}
+.pz-hint{position:absolute;top:calc(100% + 50px);left:50%;transform:translateX(-50%);white-space:nowrap;font-size:11px;color:var(--rose);opacity:.85;letter-spacing:.02em}
 </style>
 <style id="ui-overrides">body{font-family:"Noto Sans TC",sans-serif}.serif,.sec-h,h1,h2,h3,h4,.f-head,.f-name,.bignum,.stat b,.pullquote,.cap-copy h3,.vcard .vh h3,.fstep,.ccard h3,.faq summary,.kpi-h,.topbar .mark,.ribbon-track,.kicker .sindex,.dir .dn,.prob-item .ix,.cnum,.fstep .fn{font-family:"Playfair Display","Noto Serif TC",serif}body{font-size:calc(17px*1)}.lede{font-size:calc(clamp(17px,1.7vw,20px)*1)}.cap-copy p,.mbody,.f-body{font-size:calc(17px*1)}.vcard li,.prob-item p,.fstep p,.dir .dc p,.ccard p,.faq .fa,.f-bio,.kpi-rows .mv,.pullquote .sub{font-size:calc(16px*1)}.srcnote,.hedge{font-size:calc(13.5px*1)}</style><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..800;1,400..700&amp;display=swap" data-uifont="1"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400..700;1,400..600&amp;display=swap" data-uifont="1"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..700;1,6..96,400..700&amp;family=Jost:wght@300;400;500;600&amp;display=swap" data-uifont="1"></head>
 <body class="">
@@ -1213,7 +1216,7 @@ footer .disc{font-size:12px;line-height:1.85;max-width:58ch}
     if(window.PawtientI18N)window.PawtientI18N.setLang('zh');
     var doc=document.documentElement.cloneNode(true);
     ['#editbar','#design-panel','#inspector','#img-input','#logo-input','#em-toolbar'].forEach(function(s){var n=doc.querySelector(s);if(n)n.remove();});
-    [].forEach.call(doc.querySelectorAll('.el-del,.el-add,.img-badge,.pz-zoom'),function(n){n.remove();});
+    [].forEach.call(doc.querySelectorAll('.el-del,.el-add,.img-badge,.pz-zoom,.pz-hint'),function(n){n.remove();});
     [].forEach.call(doc.querySelectorAll('.el-item'),function(n){n.classList.remove('el-item');});
     [].forEach.call(doc.querySelectorAll('.img-edit'),function(n){n.classList.remove('img-edit');});
     [].forEach.call(doc.querySelectorAll('.sel-outline'),function(n){n.classList.remove('sel-outline');});
@@ -1311,26 +1314,31 @@ footer .disc{font-size:12px;line-height:1.85;max-width:58ch}
 
 
 <script>
-/* portrait pan/zoom editor — only active with ?edit */
+/* portrait photo editor (move / zoom / replace) — only active with ?edit */
 (function(){
   if(!/[?&]edit(=|&|$)/.test(location.search))return;
+  var input=document.createElement('input');input.type='file';input.accept='image/*';input.style.display='none';document.body.appendChild(input);
+  var tgt=null;
+  input.addEventListener('change',function(){var f=input.files&&input.files[0];if(!f||!tgt)return;var r=new FileReader();r.onload=function(){tgt.img.src=r.result;tgt.img.removeAttribute('loading');tgt.reset();};r.readAsDataURL(f);input.value='';});
   function setup(img){
     var host=img.closest('.portrait'); if(!host||host.getAttribute('data-pz'))return; host.setAttribute('data-pz','1');
+    var clip=document.createElement('div'); clip.className='pz-clip'; host.insertBefore(clip,img); clip.appendChild(img);
     var S=1,X=0,Y=0;
     function apply(){img.style.transform='translate('+X+'px,'+Y+'px) scale('+S+')';img.style.transformOrigin='center center';}
+    function reset(){S=1;X=0;Y=0;apply();}
     apply();
-    var moved=false,dragging=false,sx=0,sy=0;
-    img.addEventListener('mousedown',function(e){e.preventDefault();dragging=true;moved=false;sx=e.clientX-X;sy=e.clientY-Y;});
-    window.addEventListener('mousemove',function(e){if(!dragging)return;X=e.clientX-sx;Y=e.clientY-sy;moved=true;apply();});
+    img.addEventListener('click',function(e){e.stopImmediatePropagation();e.preventDefault();},true);
+    var dragging=false,sx=0,sy=0;
+    clip.addEventListener('mousedown',function(e){e.preventDefault();dragging=true;sx=e.clientX-X;sy=e.clientY-Y;});
+    window.addEventListener('mousemove',function(e){if(!dragging)return;X=e.clientX-sx;Y=e.clientY-sy;apply();});
     window.addEventListener('mouseup',function(){dragging=false;});
-    img.addEventListener('click',function(e){if(moved){e.stopImmediatePropagation();e.preventDefault();moved=false;}},true);
-    host.addEventListener('wheel',function(e){e.preventDefault();S=Math.max(.5,Math.min(4,S*(e.deltaY<0?1.08:0.92)));apply();},{passive:false});
-    new MutationObserver(function(){S=1;X=0;Y=0;apply();}).observe(img,{attributes:true,attributeFilter:['src']});
-    var z=document.createElement('div');z.className='pz-zoom';
-    z.innerHTML='<button type="button" data-a="o" title="縮小">－</button><button type="button" data-a="i" title="放大">＋</button><button type="button" data-a="r" title="重置">↺</button>';
-    host.appendChild(z);
-    z.addEventListener('mousedown',function(e){e.stopPropagation();});
-    z.addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;e.stopPropagation();e.preventDefault();var a=b.getAttribute('data-a');if(a==='i')S=Math.min(4,S*1.12);else if(a==='o')S=Math.max(.5,S/1.12);else{S=1;X=0;Y=0;}apply();});
+    clip.addEventListener('wheel',function(e){e.preventDefault();S=Math.max(.5,Math.min(4,S*(e.deltaY<0?1.08:0.92)));apply();},{passive:false});
+    var bar=document.createElement('div');bar.className='pz-zoom';
+    bar.innerHTML='<button type="button" data-a="up">⤓ 換照片</button><button type="button" data-a="o" title="縮小">－</button><button type="button" data-a="i" title="放大">＋</button><button type="button" data-a="r" title="重置">↺</button>';
+    host.appendChild(bar);
+    var hint=document.createElement('div');hint.className='pz-hint';hint.textContent='拖曳照片可移動 · 滾輪縮放';host.appendChild(hint);
+    bar.addEventListener('mousedown',function(e){e.stopPropagation();});
+    bar.addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;e.stopPropagation();e.preventDefault();var a=b.getAttribute('data-a');if(a==='i')S=Math.min(4,S*1.12);else if(a==='o')S=Math.max(.5,S/1.12);else if(a==='r'){reset();return;}else if(a==='up'){tgt={img:img,reset:reset};input.click();return;}apply();});
   }
   [].forEach.call(document.querySelectorAll('.portrait img'),setup);
 })();
