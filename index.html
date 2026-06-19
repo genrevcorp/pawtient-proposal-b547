@@ -1150,7 +1150,7 @@ footer .disc{font-size:12px;line-height:1.85;max-width:58ch}
   }
   document.addEventListener('click',function(e){
     if(!picking)return;
-    if(e.target.closest('#inspector')||e.target.closest('#editbar')||e.target.closest('#design-panel')||e.target.closest('.el-del')||e.target.closest('.el-add'))return;
+    if(e.target.closest('#inspector')||e.target.closest('#editbar')||e.target.closest('#design-panel')||e.target.closest('.el-del')||e.target.closest('.el-add')||e.target.closest('.pz-zoom')||e.target.closest('.pz-hint')||e.target.closest('.portrait'))return;
     e.preventDefault();e.stopPropagation();
     selectEl(e.target);
   },true);
